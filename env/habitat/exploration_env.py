@@ -149,7 +149,7 @@ class Exploration_Env(habitat.RLEnv):
         if self.args.frame_width != self.args.env_frame_width:
             rgb = np.asarray(self.res(rgb))
         state = rgb.transpose(2, 0, 1)
-        depth = _preprocess_depth(obs['depth'])
+        self.depth = _preprocess_depth(obs['depth'])
 
         # Initialize map and pose
         self.map_size_cm = args.map_size_cm
@@ -168,7 +168,7 @@ class Exploration_Env(habitat.RLEnv):
 
         # Update ground_truth map and explored area
         fp_proj, self.map, fp_explored, self.explored_map = \
-            self.mapper.update_map(depth, mapper_gt_pose)
+            self.mapper.update_map(self.depth, mapper_gt_pose)
 
         # Initialize variables
         self.scene_name = self.habitat_env.sim.config.SCENE
@@ -224,7 +224,7 @@ class Exploration_Env(habitat.RLEnv):
 
         state = rgb.transpose(2, 0, 1)
 
-        depth = _preprocess_depth(obs['depth'])
+        self.depth = _preprocess_depth(obs['depth'])
 
         # Get base sensor and ground-truth pose
         dx_gt, dy_gt, do_gt = self.get_gt_pose_change()
@@ -249,7 +249,7 @@ class Exploration_Env(habitat.RLEnv):
 
         # Update ground_truth map and explored area
         fp_proj, self.map, fp_explored, self.explored_map = \
-                self.mapper.update_map(depth, mapper_gt_pose)
+                self.mapper.update_map(self.depth, mapper_gt_pose)
 
 
         # Update collision map
@@ -533,6 +533,10 @@ class Exploration_Env(habitat.RLEnv):
                                                 args.exp_name)
             ep_dir = '{}/episodes/{}/{}/'.format(
                             dump_dir, self.rank+1, self.episode_no)
+            image_dir = '{}/images/{}/{}/{}/'.format(args.dump_location, args.exp_name, self.rank+1,
+                                                self.episode_no)
+            if not os.path.exists(image_dir):
+                os.makedirs(image_dir)
             if not os.path.exists(ep_dir):
                 os.makedirs(ep_dir)
 
@@ -557,7 +561,8 @@ class Exploration_Env(habitat.RLEnv):
                             dump_dir, self.rank, self.episode_no,
                             self.timestep, args.visualize,
                             args.print_images, args.vis_type)
-
+            elif args.vis_type == 2:
+                vu.visualize_rgbd(self.obs, self.depth, args.visualize, args.print_images, args.vis_type, image_dir, self.rank, self.episode_no, self.timestep)
             else: # Visualize ground-truth map and pose
                 vis_grid = vu.get_colored_map(self.map,
                                 self.collison_map,

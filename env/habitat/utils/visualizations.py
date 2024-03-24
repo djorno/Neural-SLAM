@@ -2,7 +2,7 @@ import sys
 
 import matplotlib
 import numpy as np
-
+import cv2
 if sys.platform == 'darwin':
     matplotlib.use("tkagg")
 else:
@@ -21,7 +21,6 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
         ax[i].set_xticks([])
         ax[i].set_yticklabels([])
         ax[i].set_xticklabels([])
-
     ax[0].imshow(img)
     ax[0].set_title("Observation", family='sans-serif',
                     fontname='Helvetica',
@@ -73,10 +72,19 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
         plt.gcf().canvas.flush_events()
 
     if print_images:
-        fn = '{}/episodes/{}/{}/{}-{}-Vis-{}.png'.format(
+        fn = '{}/episodes/{}/{}/cam-{}-{}-{}.png'.format(
             dump_dir, (rank + 1), ep_no, rank, ep_no, t)
         plt.savefig(fn)
 
+def visualize_rgbd(img, depth, visualize, print_images, vis_style, img_dir, rank, ep_no, t):
+
+    if print_images:
+        fn_img = '{}/rgb-{}-{}-{}.png'.format(
+            img_dir, rank, ep_no, t)
+        cv2.imwrite(fn_img, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        fn_dph = '{}/depth-{}-{}-{}.png'.format(
+            img_dir, rank, ep_no, t)
+        cv2.imwrite(fn_dph, depth)
 
 def insert_circle(mat, x, y, value):
     mat[x - 2: x + 3, y - 2:y + 3] = value
