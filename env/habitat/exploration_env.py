@@ -2,6 +2,7 @@ import math
 import os
 import pickle
 import sys
+import cv2
 
 import gym
 import matplotlib
@@ -46,6 +47,36 @@ def _preprocess_depth(depth):
     depth = depth*1000.
     return depth
 
+def center_and_align_map(map_array, gt_pose):
+    # 1. Calculate translation
+    center_x, center_y = map_array.shape[1] // 2, map_array.shape[0] // 2  # Original center
+    tx = gt_pose[0] - center_x 
+    ty = - gt_pose[1] - center_y
+    
+    # translation matrix
+    translation_matrix = np.float32([[1, 0, ty], [0, 1, -tx]])
+    
+    # apply translation
+    transformed_map = cv2.warpAffine(
+        map_array,
+        translation_matrix,
+        (map_array.shape[1], map_array.shape[0]),
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0)  # Fill the edges with a background color if needed
+    )
+    
+    rotation_matrix = cv2.getRotationMatrix2D((center_x, center_y), -gt_pose[2] - np.pi, 1)
+    
+    # apply rotation
+    transformed_map = cv2.warpAffine(
+        transformed_map,
+        rotation_matrix,
+        (map_array.shape[1], map_array.shape[0]),
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0)  # Fill the edges with a background color if needed
+    )
+
+    return transformed_map
 
 class Exploration_Env(habitat.RLEnv):
 
@@ -535,10 +566,14 @@ class Exploration_Env(habitat.RLEnv):
                             dump_dir, self.rank+1, self.episode_no)
             image_dir = '{}/images/{}/{}/{}/'.format(args.dump_location, args.exp_name, self.rank+1,
                                                 self.episode_no)
+            map_dir = '{}/maps/{}/{}/{}/'.format(args.dump_location, args.exp_name, self.rank+1,
+                                                 self.episode_no)
             if not os.path.exists(image_dir):
                 os.makedirs(image_dir)
             if not os.path.exists(ep_dir):
                 os.makedirs(ep_dir)
+            if not os.path.exists(map_dir):
+                os.makedirs(map_dir)
 
             if args.vis_type == 1: # Visualize predicted map and pose
                 vis_grid = vu.get_colored_map(np.rint(map_pred),
@@ -563,6 +598,36 @@ class Exploration_Env(habitat.RLEnv):
                             args.print_images, args.vis_type)
             elif args.vis_type == 2:
                 vu.visualize_rgbd(self.obs, self.depth, args.visualize, args.print_images, args.vis_type, image_dir, self.rank, self.episode_no, self.timestep)
+            elif args.vis_type == 3: # Visualize ground-truth map and pose
+                vu.visualize_rgbd(self.obs, self.depth, args.visualize, args.print_images, args.vis_type, image_dir, self.rank, self.episode_no, self.timestep)
+                # visualize self.map, self.collison_map, self.visited_gt, self.explored_map, self.explorable_map
+                map_bad = self.map
+                explored_map_bad = self.explored_map
+                y_h , x_h, o_h = (- map_bad.shape[1] + start_x_gt * 100.0 / 5.0, start_y_gt * 100.0 / 5.0, start_o_gt)                
+                robot_centerd_map = center_and_align_map(map_bad, (x_h, y_h, o_h))
+                robot_centered_explored_map = center_and_align_map(explored_map_bad, (x_h, y_h, o_h))
+                
+                if robot_centerd_map.dtype != np.uint8:
+                    map_gt_save = (robot_centerd_map * 255).astype(np.uint8)
+                else:
+                    map_gt_save = self.map
+                
+                if robot_centered_explored_map.dtype != np.uint8:
+                    explored_map_save = (robot_centered_explored_map * 255).astype(np.uint8)
+                else:
+                    explored_map_save = robot_centered_explored_map
+                
+                fn_pose = '{}pose-{}-{}-{}.npz'.format(
+                        map_dir, self.rank, self.episode_no, self.timestep)
+                np.savez(fn_pose, self.curr_loc_gt)
+                
+                fn_map = '{}map-{}-{}-{}.npz'.format(
+                        map_dir, self.rank, self.episode_no, self.timestep)
+                np.savez(fn_map, map_gt_save)
+                
+                fn_map = '{}explored-map-{}-{}-{}.npz'.format(
+                        map_dir, self.rank, self.episode_no, self.timestep)
+                np.savez(fn_map, explored_map_save)
             else: # Visualize ground-truth map and pose
                 vis_grid = vu.get_colored_map(self.map,
                                 self.collison_map,
