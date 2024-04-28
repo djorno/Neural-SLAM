@@ -14,6 +14,7 @@ from PIL import Image
 from torch.nn import functional as F
 from torchvision import transforms
 
+
 if sys.platform == 'darwin':
     matplotlib.use("tkagg")
 else:
@@ -447,7 +448,7 @@ class Exploration_Env(habitat.RLEnv):
         grid = np.rint(map_pred)
         explored = np.rint(exp_pred)
 
-        # Get pose prediction and global policy planning window
+        # Get pose prediction and global policy planning window (gx1, gx2, gy1, gy2)
         start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred']
         gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
         planning_window = [gx1, gx2, gy1, gy2]
