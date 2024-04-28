@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+import cv2
 
 import gym
 import logging
@@ -532,6 +533,43 @@ def main():
                 p_input['goal'] = global_goals[e]
 
             output = envs.get_short_term_goal(planner_inputs)
+            
+            
+            # save the planner_inputs to separate png's
+            for e, p_input in enumerate(planner_inputs):
+                # Save 'map_pred'
+                map_pred_image = p_input['map_pred']
+
+                # Make sure the data type is uint8 for image saving
+                if map_pred_image.dtype != np.uint8:
+                    map_pred_image = (map_pred_image * 255).astype(np.uint8)  
+                
+                # create saving format
+                save_dir = '{}/dump/{}/episodes/{}/{}'.format(args.dump_location, 
+                                                            args.exp_name, 
+                                                            (e + 1), (ep_num +1))
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                fn = '{}/map-pred-{}-{}-{}.png'.format(save_dir, e, (ep_num + 1), step)
+                # Assuming 'map_pred' is grayscale, otherwise adapt for color
+                cv2.imwrite(fn, map_pred_image)  
+
+                # Save 'exp_pred'  
+                exp_pred_image = p_input['exp_pred']
+
+                # Ensure dtype is uint8 if needed
+                if exp_pred_image.dtype != np.uint8:
+                    exp_pred_image = (exp_pred_image * 255).astype(np.uint8)  
+
+                save_dir = '{}/dump/{}/episodes/{}/{}'.format(args.dump_location, 
+                                                            args.exp_name, 
+                                                            (e + 1), (ep_num + 1))
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                fn = '{}/exp-pred-{}-{}-{}.png'.format(save_dir, e, (ep_num + 1), step)
+                # Save image (assuming grayscale) 
+                cv2.imwrite(fn, exp_pred_image) 
+            
             # ------------------------------------------------------------------
 
             ### TRAINING
